@@ -311,6 +311,8 @@ def main():
     folder_name = f"canary_{str(args.canary_rep)}_{str(args.canary_len)}_adapter_{args.add_adapter}_head_{args.train_head_only}_layer_{args.train_layer_n_only}_ref_{args.do_ref_model}_maxlen_{args.block_size}_red_{args.adapter_reduction}_model_{args.model_name_or_path}_lr_{args.learning_rate}_epoch_{args.num_train_epochs}_trba_{args.per_device_train_batch_size}_acc_{args.gradient_accumulation_steps}_evba{args.per_device_eval_batch_size}_data_{args.dataset_name}"
     
     directory = "{}/{}".format(args.output_dir,folder_name)
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
     if not os.path.exists(directory):
         os.mkdir(directory)
     
@@ -448,7 +450,9 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name_or_path,
             from_tf=bool(".ckpt" in args.model_name_or_path),
+            # load_in_4bit=True,
             config=config,
+            torch_dtype=torch.float16
         )
     else:
         logger.info("Training new model from scratch")
@@ -705,11 +709,11 @@ def main():
     #progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
     completed_steps = 0
     best_loss = 1000000
-    for epoch in range(args.num_train_epochs):
+    for epoch in tqdm(range(args.num_train_epochs)):
         model.train()
         if accelerator.is_local_main_process:
             print(f"training epoch {epoch}")
-        for step, batch in enumerate(train_dataloader):
+        for step, batch in tqdm(enumerate(train_dataloader)):
             outputs = model(**batch)
             loss = outputs.loss
             loss = loss / args.gradient_accumulation_steps
@@ -775,7 +779,7 @@ def main():
             model_ref.eval()
             losses_ref = []
             
-        for step, batch in enumerate(eval_dataloader):
+        for step, batch in tqdm(enumerate(eval_dataloader)):
             with torch.no_grad():
                 outputs = model(**batch)
                 
@@ -846,7 +850,7 @@ def main():
             model_ref.eval()
             losses_ref = []
             
-        for step, batch in enumerate(train_dataloader):
+        for step, batch in tqdm(enumerate(train_dataloader)):
             with torch.no_grad():
                 outputs = model(**batch)
 
@@ -917,7 +921,7 @@ def main():
         model_ref.eval()
         losses_ref = []
         
-    for step, batch in enumerate(eval_dataloader):
+    for step, batch in tqdm(enumerate(eval_dataloader)):
         with torch.no_grad():
             outputs = model(**batch)
             
@@ -967,7 +971,7 @@ def main():
         model_ref.eval()
         losses_ref = []
         
-    for step, batch in enumerate(train_dataloader):
+    for step, batch in tqdm(enumerate(train_dataloader)):
         with torch.no_grad():
             outputs = model(**batch)
 
